@@ -3,8 +3,6 @@ package com.govu.hisaab.llm
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
-import com.google.mediapipe.tasks.genai.llminference.LlmInference
-import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import com.govu.hisaab.core.DayFacts
 import com.govu.hisaab.core.Summary
 import com.govu.hisaab.core.Txn
@@ -12,29 +10,18 @@ import java.io.Closeable
 import java.io.File
 
 /**
- * Gemma 3 1B (int4, ~550 MB) running on the phone through MediaPipe's LLM Inference API.
- * The app has no INTERNET permission, so nothing here can leave the device even by accident.
+ * Gemma running on the phone: Gemma 4 E2B through LiteRT-LM when its `.litertlm` file is
+ * present, else Gemma 3 1B through MediaPipe. The app has no INTERNET permission, so nothing
+ * here can leave the device even by accident.
  *
  * Gemma does two jobs only: name the merchant behind a cryptic SMS descriptor, and turn the
  * morning numbers into a short note. Amounts and alerts never depend on it.
  */
-class Gemma private constructor(private val llm: LlmInference, val backend: String, val loadMs: Long) : Closeable {
+class Gemma private constructor(private val runner: Runner, val backend: String, val loadMs: Long, val model: String) : Closeable {
 
-    fun ask(prompt: String): String {
-        val opts = LlmInferenceSession.LlmInferenceSessionOptions.builder()
-            .setTopK(1)
-            .setTemperature(0f)
-            .setRandomSeed(7)
-            .build()
-        LlmInferenceSession.createFromOptions(llm, opts).use { s ->
-            // Gemma's chat turns. Without them the 1B model just continues the text,
-            // which in the first test meant echoing the instructions back.
-            s.addQueryChunk("<start_of_turn>user\n${prompt.trim()}<end_of_turn>\n<start_of_turn>model\n")
-            return s.generateResponse().replace("<end_of_turn>", "").trim()
-        }
-    }
+    fun ask(prompt: String): String = runner.ask(prompt)
 
-    fun tokens(text: String): Int = runCatching { llm.sizeInTokens(text) }.getOrDefault(text.length / 4)
+    private fun tokens(text: String): Int = maxOf(1, text.length / 4)
 
     /** "Swiggy" + "Food" for "BUNDL TECHNOLOGIES". Falls back to the raw text if the answer is malformed. */
     fun nameMerchant(t: Txn): Pair<String, String> {
@@ -66,8 +53,7 @@ Note:""",
         Log.i(TAG, "BENCH answer: $out")
         val outTok = tokens(out)
         val inTok = tokens(prompt)
-        return "backend=$backend load=${loadMs}ms prompt=${inTok}tok answer=${outTok}tok total=${ms}ms " +
-            "(~${"%.1f".format((inTok + outTok) * 1000.0 / ms)} tok/s overall) -> \"$out\""
+        return "$model on $backend: load ${loadMs} ms, one label ${ms} ms (prompt ~${inTok} tok) -> \"$out\""
     }
 
     /** Runs the 24-merchant check from [com.govu.hisaab.core.EvalSet] and returns a one-line score. */
@@ -89,12 +75,12 @@ Note:""",
             Log.i(TAG, line); onEach(line)
         }
         val n = com.govu.hisaab.core.EvalSet.cases.size
-        val r = "names $names/$n, categories $cats/$n, ${ms / n} ms each on $backend. Misses: ${misses.joinToString("; ")}"
+        val r = "$model: names $names/$n, categories $cats/$n, ${ms / n} ms each on $backend. Misses: ${misses.joinToString("; ")}"
         Log.i(TAG, "EVAL RESULT $r")
         return r
     }
 
-    override fun close() = llm.close()
+    override fun close() = runner.close()
 
     companion object {
         const val TAG = "Hisaab"
@@ -110,22 +96,32 @@ Note:""",
             body = "Spent Rs.349.00 On HDFC Bank Card 5508 At PYU*BUNDL TECHNOLOGIES On 2026-10-20:13:05:10",
         )
 
-        fun modelFile(ctx: Context): File? =
-            ctx.getExternalFilesDir(null)?.listFiles { f -> f.name.endsWith(".task") }?.maxByOrNull { it.length() }
+        fun models(ctx: Context): List<File> =
+            ctx.getExternalFilesDir(null)?.listFiles { f -> f.name.endsWith(".task") || f.name.endsWith(".litertlm") }
+                ?.sortedByDescending { it.length() } ?: emptyList()
+
+        /** The model the user picked in Setup, else the biggest one present. */
+        fun modelFile(ctx: Context): File? {
+            val all = models(ctx)
+            val pick = ctx.getSharedPreferences("hisaab", Context.MODE_PRIVATE).getString("model", null)
+            return all.firstOrNull { it.name == pick } ?: all.firstOrNull()
+        }
+
+        fun label(f: File) = when {
+            f.name.startsWith("gemma-4-E2B") -> "Gemma 4 E2B"
+            f.name.startsWith("gemma-4-E4B") -> "Gemma 4 E4B"
+            f.name.startsWith("gemma3-1b") || f.name.startsWith("Gemma3-1B") -> "Gemma 3 1B"
+            else -> f.nameWithoutExtension
+        }
 
         /** Loads the model. CPU by default: it's the backend that works on every phone. */
-        fun open(ctx: Context, gpu: Boolean = false): Gemma? {
-            val f = modelFile(ctx) ?: return null
+        fun open(ctx: Context, gpu: Boolean = false, file: File? = null): Gemma? {
+            val f = file ?: modelFile(ctx) ?: return null
             val t0 = SystemClock.elapsedRealtime()
             return runCatching {
-                val opts = LlmInference.LlmInferenceOptions.builder()
-                    .setModelPath(f.absolutePath)
-                    .setMaxTokens(768)
-                    .setMaxTopK(40)
-                    .setPreferredBackend(if (gpu) LlmInference.Backend.GPU else LlmInference.Backend.CPU)
-                    .build()
-                Gemma(LlmInference.createFromOptions(ctx, opts), if (gpu) "GPU" else "CPU", SystemClock.elapsedRealtime() - t0)
-            }.onFailure { Log.e(TAG, "Gemma load failed (gpu=$gpu)", it) }.getOrNull()
+                val r: Runner = if (f.name.endsWith(".litertlm")) LiteRtLmRunner(ctx, f, gpu) else MediaPipeRunner(ctx, f, gpu)
+                Gemma(r, if (gpu) "GPU" else "CPU", SystemClock.elapsedRealtime() - t0, label(f))
+            }.onFailure { Log.e(TAG, "load failed: ${f.name} gpu=$gpu", it) }.getOrNull()
         }
 
         fun merchantPrompt(t: Txn): String {

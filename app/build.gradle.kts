@@ -28,7 +28,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
+
     buildFeatures { compose = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }
@@ -42,6 +42,11 @@ dependencies {
     implementation("androidx.core:core-ktx:1.16.0")
     implementation("androidx.work:work-runtime-ktx:2.10.2")
     implementation("com.google.mediapipe:tasks-genai:0.10.33")
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.17.1")
 
     testImplementation("junit:junit:4.13.2")
+}
+
+kotlin {
+    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
 }

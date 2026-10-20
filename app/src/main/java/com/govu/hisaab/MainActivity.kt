@@ -412,7 +412,9 @@ private fun SetupScreen(s: Snapshot, reload: () -> Unit) {
         ctx.packageManager.getPackageInfo(ctx.packageName, PackageManager.GET_PERMISSIONS)
             .requestedPermissions?.contains(Manifest.permission.INTERNET) == true
     }
-    val model = remember(tick(s)) { Gemma.modelFile(ctx) }
+    var modelPick by remember { mutableIntStateOf(0) }
+    val model = remember(tick(s), modelPick) { Gemma.modelFile(ctx) }
+    val allModels = remember(tick(s)) { Gemma.models(ctx) }
 
     fun job(label: String, block: suspend () -> Unit) {
         if (busy.isNotEmpty()) return
@@ -448,7 +450,15 @@ private fun SetupScreen(s: Snapshot, reload: () -> Unit) {
         item { SectionTitle("Gemma on this phone") }
         item {
             Glass {
-                Text(model?.let { "${it.name} · ${it.length() / 1_048_576} MB" } ?: "No model yet", fontWeight = FontWeight.SemiBold, color = t.text)
+                Text(model?.let { "${Gemma.label(it)} · ${it.length() / 1_048_576} MB" } ?: "No model yet", fontWeight = FontWeight.SemiBold, color = t.text)
+                if (allModels.size > 1) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    allModels.forEach { f ->
+                        FilterChip(selected = f == model, onClick = {
+                            ctx.getSharedPreferences("hisaab", android.content.Context.MODE_PRIVATE).edit().putString("model", f.name).apply()
+                            modelPick++
+                        }, label = { Text(Gemma.label(f), fontSize = 12.sp) })
+                    }
+                }
                 if (model == null) Text("Copy gemma3-1b-it-int4.task into Android/data/com.govu.hisaab/files/ (see README).", color = t.text2, fontSize = 13.sp)
                 if (s.progress.isNotEmpty()) Text("Naming merchants: ${s.progress}", color = t.primary, fontSize = 13.sp)
                 if (bench.isNotEmpty()) { Spacer(Modifier.height(6.dp)); Text(bench, color = t.text2, fontSize = 12.sp, fontFamily = FontFamily.Monospace) }

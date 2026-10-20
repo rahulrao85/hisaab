@@ -69,7 +69,7 @@ class Store private constructor(ctx: Context, name: String) : SQLiteOpenHelper(c
 
     @Synchronized
     fun setVerdict(id: Long, verdict: Verdict) {
-        writableDatabase.execSQL("UPDATE txn SET verdict=? WHERE id=?", arrayOf(verdict.name, id))
+        writableDatabase.execSQL("UPDATE txn SET verdict=? WHERE id=?", arrayOf<Any>(verdict.name, id))
         if (verdict == Verdict.MINE) {
             writableDatabase.execSQL(
                 "INSERT OR IGNORE INTO trusted(merchant_key) SELECT merchant_key FROM txn WHERE id=? AND merchant_key<>''",
