@@ -27,8 +27,10 @@ class Gemma private constructor(private val llm: LlmInference, val backend: Stri
             .setRandomSeed(7)
             .build()
         LlmInferenceSession.createFromOptions(llm, opts).use { s ->
-            s.addQueryChunk(prompt)
-            return s.generateResponse().trim()
+            // Gemma's chat turns. Without them the 1B model just continues the text,
+            // which in the first test meant echoing the instructions back.
+            s.addQueryChunk("<start_of_turn>user\n${prompt.trim()}<end_of_turn>\n<start_of_turn>model\n")
+            return s.generateResponse().replace("<end_of_turn>", "").trim()
         }
     }
 
@@ -61,10 +63,35 @@ Note:""",
         val t0 = SystemClock.elapsedRealtime()
         val out = ask(prompt)
         val ms = SystemClock.elapsedRealtime() - t0
+        Log.i(TAG, "BENCH answer: $out")
         val outTok = tokens(out)
         val inTok = tokens(prompt)
         return "backend=$backend load=${loadMs}ms prompt=${inTok}tok answer=${outTok}tok total=${ms}ms " +
             "(~${"%.1f".format((inTok + outTok) * 1000.0 / ms)} tok/s overall) -> \"$out\""
+    }
+
+    /** Runs the 24-merchant check from [com.govu.hisaab.core.EvalSet] and returns a one-line score. */
+    fun evaluate(onEach: (String) -> Unit = {}): String {
+        var names = 0; var cats = 0; var ms = 0L
+        val misses = mutableListOf<String>()
+        for (c in com.govu.hisaab.core.EvalSet.cases) {
+            val t = Txn(smsId = 0, ts = 0, sender = "", body = "", kind = c.kind, amount = 0.0, merchantRaw = c.raw, merchantKey = c.raw)
+            val t0 = SystemClock.elapsedRealtime()
+            val raw = ask(merchantPrompt(t))
+            ms += SystemClock.elapsedRealtime() - t0
+            val (name, cat) = parseMerchant(raw, t)
+            val nOk = com.govu.hisaab.core.EvalSet.nameOk(c, name)
+            val cOk = com.govu.hisaab.core.EvalSet.catOk(c, cat)
+            if (nOk) names++
+            if (cOk) cats++
+            if (!nOk || !cOk) misses += "${c.raw}→$name|$cat"
+            val line = "EVAL ${if (nOk) "✓" else "✗"}${if (cOk) "✓" else "✗"} ${c.raw} -> $name | $cat   (raw: ${raw.replace('\n', ' ')})"
+            Log.i(TAG, line); onEach(line)
+        }
+        val n = com.govu.hisaab.core.EvalSet.cases.size
+        val r = "names $names/$n, categories $cats/$n, ${ms / n} ms each on $backend. Misses: ${misses.joinToString("; ")}"
+        Log.i(TAG, "EVAL RESULT $r")
+        return r
     }
 
     override fun close() = llm.close()
@@ -111,25 +138,51 @@ Note:""",
 Reply with exactly one line in the form: Name | Category
 Category must be one of: ${CATEGORIES.joinToString(", ")}.
 
-Payee: BUNDL TECHNOLOGIES (a payment to) -> Swiggy | Food
-Payee: IRCTC WEB UPI (a payment to) -> IRCTC | Travel
-Payee: BPCL SAI FUELS (a payment to) -> BPCL petrol pump | Fuel
-Payee: RAZ*CULTFIT (a payment to) -> Cult.fit | Health
-Payee: BBPS-BESCOM (a bill from) -> BESCOM electricity | Bills
-Payee: rk.verma@okhdfcbank (money received from) -> R K Verma | Transfers
-Payee: ZERODHA BROKING (a payment to) -> Zerodha | Investments
+Use the brand people know, not the company's legal name.
+Examples:
+BUNDL TECHNOLOGIES (a payment to) -> Swiggy | Food
+ROPPEN TRANSPORTATION SERVICES (a payment to) -> Rapido | Travel
+SPORTA TECHNOLOGIES (a payment to) -> Dream11 | Entertainment
+IRCTC WEB UPI (a payment to) -> IRCTC | Travel
+BPCL SAI FUELS (a payment to) -> BPCL | Fuel
+RAZ*CULTFIT (a payment to) -> Cult.fit | Health
+BBPS-BESCOM (a bill from) -> BESCOM | Bills
+VODAFONE IDEA (a payment to) -> Vi | Bills
+rk.verma@okhdfcbank (money received from) -> R K Verma | Transfers
+ZERODHA BROKING (a payment to) -> Zerodha | Investments
 
-Payee: ${t.merchantRaw.ifBlank { "(none)" }} ($what) ->"""
+Payee: ${t.merchantRaw.ifBlank { "(none)" }} ($what)"""
+        }
+
+        /** Words the model uses for a category, mapped onto ours. */
+        private val synonyms = mapOf(
+            "telecom" to "Bills", "utilit" to "Bills", "recharge" to "Bills", "electric" to "Bills", "mobile" to "Bills",
+            "insurance" to "Bills", "grocer" to "Groceries", "supermarket" to "Groceries", "restaurant" to "Food",
+            "dining" to "Food", "food" to "Food", "transport" to "Travel", "cab" to "Travel", "taxi" to "Travel",
+            "flight" to "Travel", "petrol" to "Fuel", "streaming" to "Subscriptions", "ott" to "Subscriptions",
+            "subscription" to "Subscriptions", "pharma" to "Health", "medical" to "Health", "movie" to "Entertainment",
+            "gaming" to "Entertainment", "e-commerce" to "Shopping", "ecommerce" to "Shopping", "retail" to "Shopping",
+            "fashion" to "Shopping", "loan" to "EMI", "invest" to "Investments", "mutual fund" to "Investments",
+            "transfer" to "Transfers", "salary" to "Salary",
+        )
+
+        fun normaliseCategory(raw: String): String {
+            val c = raw.trim().trim('"', '*', '.', ' ')
+            CATEGORIES.firstOrNull { c.startsWith(it, ignoreCase = true) }?.let { return it }
+            val l = c.lowercase()
+            return synonyms.entries.firstOrNull { it.key in l }?.value ?: "Other"
         }
 
         fun parseMerchant(answer: String, t: Txn): Pair<String, String> {
-            val line = answer.lineSequence().map { it.trim().removePrefix("->").trim() }.firstOrNull { '|' in it }
             val fallbackName = t.merchantRaw.lowercase().split(' ').joinToString(" ") { w -> w.replaceFirstChar { it.uppercase() } }
-            if (line == null) return fallbackName.ifBlank { "Unknown" } to "Other"
-            val name = line.substringBefore('|').trim().trim('"', '*', '.').take(32).ifBlank { fallbackName }
-            val catRaw = line.substringAfter('|').trim().trim('"', '*', '.')
-            val cat = CATEGORIES.firstOrNull { catRaw.startsWith(it, ignoreCase = true) } ?: "Other"
-            return name to cat
+            val line = answer.lineSequence().map { it.trim() }.firstOrNull { '|' in it }
+                ?: return fallbackName.ifBlank { "Unknown" } to "Other"
+            // The model sometimes repeats the example shape "PAYEE (a payment to) -> Name | Category".
+            val left = line.substringBefore('|').let { if ("->" in it) it.substringAfterLast("->") else it }
+            val name = left.replace(Regex("""\((?:a payment to|a bill from|money received from)\)""", RegexOption.IGNORE_CASE), "")
+                .replace(Regex("""^(?:payee|answer|name)\s*:\s*""", RegexOption.IGNORE_CASE), "")
+                .trim().trim('"', '*', '.', ' ').take(32).ifBlank { fallbackName }
+            return name to normaliseCategory(line.substringAfter('|'))
         }
     }
 }

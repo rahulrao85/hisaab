@@ -29,6 +29,13 @@ import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Receipt
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -192,6 +199,7 @@ private fun TodayScreen(s: Snapshot, reload: () -> Unit) {
     val open = s.txns.filter { it.alerts.isNotEmpty() && it.verdict == Verdict.NONE }
     val flagged = s.txns.filter { it.verdict == Verdict.NOT_MINE }
     val recent = s.txns.filter { it.kind == Kind.DEBIT || it.kind == Kind.CREDIT }.take(40)
+    var editing by remember { mutableStateOf<Txn?>(null) }
 
     fun verdict(tx: Txn, v: Verdict) = scope.launch {
         withContext(Dispatchers.IO) { Store.get(ctx).setVerdict(tx.id, v) }
@@ -232,8 +240,46 @@ private fun TodayScreen(s: Snapshot, reload: () -> Unit) {
         }
         item { SectionTitle("Recent") }
         if (recent.isEmpty()) item { Text("No bank SMS yet. Open Setup to scan your inbox or load demo data.", color = t.text2, modifier = Modifier.padding(4.dp)) }
-        items(recent, key = { "r${it.id}" }) { tx -> TxnRow(tx) }
+        items(recent, key = { "r${it.id}" }) { tx -> TxnRow(tx) { editing = tx } }
     }
+    editing?.let { tx ->
+        RenameDialog(tx, onDismiss = { editing = null }) { name, cat ->
+            editing = null
+            scope.launch {
+                withContext(Dispatchers.IO) { Store.get(ctx).saveMerchant(tx.merchantKey, name, cat) }
+                reload()
+            }
+        }
+    }
+}
+
+/** Fix a merchant once; every past and future payment to it follows. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RenameDialog(tx: Txn, onDismiss: () -> Unit, onSave: (String, String) -> Unit) {
+    val t = LocalTokens.current
+    var name by remember { mutableStateOf(tx.displayName) }
+    var cat by remember { mutableStateOf(tx.category ?: "Other") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = t.surface,
+        title = { Text("Who is this?", color = t.text) },
+        text = {
+            Column {
+                Text("SMS said: ${tx.merchantRaw}", color = t.muted, fontSize = 12.sp)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(value = name, onValueChange = { name = it.take(32) }, singleLine = true, label = { Text("Name") })
+                Spacer(Modifier.height(10.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Gemma.CATEGORIES.forEach { c ->
+                        FilterChip(selected = c == cat, onClick = { cat = c }, label = { Text(c, fontSize = 12.sp) })
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { if (name.isNotBlank()) onSave(name.trim(), cat) }) { Text("Save for all", color = t.primary) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = t.text2) } },
+    )
 }
 
 @Composable
@@ -264,16 +310,16 @@ private fun AlertCard(tx: Txn, onMine: () -> Unit, onNotMine: () -> Unit) {
         }
         Spacer(Modifier.height(6.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onMine, colors = ButtonDefaults.buttonColors(containerColor = t.primary), modifier = Modifier.weight(1f)) { Text("It was me") }
+            Button(onClick = onMine, colors = ButtonDefaults.buttonColors(containerColor = t.primary, contentColor = androidx.compose.ui.graphics.Color.White), modifier = Modifier.weight(1f)) { Text("It was me") }
             OutlinedButton(onClick = onNotMine, modifier = Modifier.weight(1f)) { Text("Not me", color = t.danger) }
         }
     }
 }
 
 @Composable
-private fun TxnRow(tx: Txn) {
+private fun TxnRow(tx: Txn, onEdit: () -> Unit) {
     val t = LocalTokens.current
-    Glass {
+    Glass(Modifier.clickable(onClick = onEdit)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(tx.displayName, fontWeight = FontWeight.Medium, color = t.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -348,6 +394,7 @@ private fun SetupScreen(s: Snapshot, reload: () -> Unit) {
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf("") }
     var bench by remember { mutableStateOf(Store.get(ctx).get("bench") ?: "") }
+    var evalResult by remember { mutableStateOf(Store.get(ctx).get("eval") ?: "") }
 
     fun has(p: String) = ContextCompat.checkSelfPermission(ctx, p) == PackageManager.PERMISSION_GRANTED
     var smsOk by remember { mutableStateOf(has(Manifest.permission.READ_SMS) && has(Manifest.permission.RECEIVE_SMS)) }
@@ -393,7 +440,7 @@ private fun SetupScreen(s: Snapshot, reload: () -> Unit) {
                     Spacer(Modifier.height(8.dp))
                     Button(onClick = {
                         askPerms.launch(arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS, Manifest.permission.POST_NOTIFICATIONS))
-                    }, colors = ButtonDefaults.buttonColors(containerColor = t.primary)) { Text("Grant") }
+                    }, colors = ButtonDefaults.buttonColors(containerColor = t.primary, contentColor = androidx.compose.ui.graphics.Color.White)) { Text("Grant") }
                 }
                 Text("Only business senders like VM-HDFCBK are read. Messages from people are skipped unread.", color = t.muted, fontSize = 12.sp)
             }
@@ -420,7 +467,16 @@ private fun SetupScreen(s: Snapshot, reload: () -> Unit) {
                         }
                     }) { Text("GPU") }
                 }
-                OutlinedButton(enabled = model != null, onClick = { Jobs.enrichSoon(ctx) }) { Text("Name new merchants now") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(enabled = model != null && busy.isEmpty(), onClick = {
+                        job("Checking Gemma on 24 known merchants…") {
+                            val r = Gemma.open(ctx)?.use { it.evaluate() } ?: "Model load failed"
+                            Store.get(ctx).put("eval", r); evalResult = r
+                        }
+                    }) { Text("Accuracy check") }
+                    OutlinedButton(enabled = model != null, onClick = { Jobs.enrichSoon(ctx) }) { Text("Name merchants") }
+                }
+                if (evalResult.isNotEmpty()) Text(evalResult, color = t.text2, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
             }
         }
         item { SectionTitle("Data") }
@@ -452,7 +508,7 @@ private fun SetupScreen(s: Snapshot, reload: () -> Unit) {
                         SmsSource.inbox(ctx, since).forEach { store.ingest(it, backfill = true) }
                         Jobs.enrichSoon(ctx)
                     }
-                }, colors = ButtonDefaults.buttonColors(containerColor = t.primary)) { Text("Scan last 90 days of SMS") }
+                }, colors = ButtonDefaults.buttonColors(containerColor = t.primary, contentColor = androidx.compose.ui.graphics.Color.White)) { Text("Scan last 90 days of SMS") }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { Jobs.morningNow(ctx) }) { Text("Morning note now") }
                     OutlinedButton(onClick = { exportCsv.launch("hisaab_${java.time.LocalDate.now()}.csv") }) { Text("Export CSV") }
