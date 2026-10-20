@@ -504,6 +504,7 @@ private fun SetupScreen(s: Snapshot, reload: () -> Unit) {
                         job("Switching…") {
                             Store.setDemo(ctx, on)
                             if (on) {
+                                ctx.getSharedPreferences("hisaab", android.content.Context.MODE_PRIVATE).edit().putInt("sim_step", 0).apply()
                                 val d = Store.demo(ctx)
                                 d.wipe()
                                 Ingest.demo(ctx.assets.open("demo_sms.tsv").bufferedReader().readText())

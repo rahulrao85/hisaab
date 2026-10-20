@@ -8,7 +8,7 @@ That's a problem, because the SMS is often the only place a mistake shows up. A 
 
 The usual fix is an expense app that "reads your SMS". The catch is how it reads them: most upload your messages to their servers and parse them there. Your bank SMS are some of the most private data on your phone: what you pay, who you pay, when you're awake, and the last digits of every account and card.
 
-So I built **Hisaab** (हिसाब, Hindi for "the accounts"). It's an Android app that reads my bank SMS with **Gemma 3 1B running on the phone itself**, and it can't send anything anywhere: **the app has no internet permission at all.**
+So I built **Hisaab** (हिसाब, Hindi for "the accounts"). It's an Android app that reads my bank SMS with **Gemma 4 E2B running on the phone itself**, and it can't send anything anywhere: **the app has no internet permission at all.**
 
 What it does, so I don't have to:
 
@@ -29,9 +29,9 @@ What it does, so I don't have to:
 
 REPLACE_DEMO_VIDEO
 
-| Was this you? | Bills, matched | No internet, by design |
+| Today | Bills, matched | No internet, by design |
 |---|---|---|
-| ![Alerts](REPLACE_IMG_ALERTS) | ![Bills](REPLACE_IMG_BILLS) | ![Setup](REPLACE_IMG_SETUP) |
+| ![Today: alerts and the morning note](https://raw.githubusercontent.com/rahulrao85/hisaab/main/post/img_today.png) | ![Bills matched to the payments](https://raw.githubusercontent.com/rahulrao85/hisaab/main/post/img_bills.png) | ![Setup: no internet permission](https://raw.githubusercontent.com/rahulrao85/hisaab/main/post/img_setup.png) |
 
 *The screenshots use the app's demo mode: 30 made-up SMS in a separate database. No real account appears anywhere in this post.*
 
@@ -41,29 +41,34 @@ REPLACE_DEMO_VIDEO
 
 ## How I Built It
 
-**The rule I started with: the model never touches money.** A 1B model is small, and small models guess. So I split the work by how wrong each part is allowed to be:
+**The rule I started with: the model never touches money.** A phone-sized model is small, and small models guess. So I split the work by how wrong each part is allowed to be:
 
 | Job | Who does it | Why |
 |---|---|---|
 | Amount, account, reference number, due date | Plain regex | Must be exact. An unparsed SMS means "no alert", never a wrong ₹ figure |
 | When to alert | Plain rules | A phone-sized model shouldn't be the one calling something fraud |
-| Who the merchant really is, and its category | **Gemma 3 1B, on the phone** | This is where a language model earns its place |
-| The wording of the morning note | **Gemma 3 1B**, behind a number guard | Friendly text, but only with numbers the code computed |
+| Who the merchant really is, and its category | **Gemma 4 E2B, on the phone** | This is where a language model earns its place |
+| One friendly line in the morning note | **Gemma 4 E2B**, with no numbers allowed | The figures underneath come from code |
 
-**Why Gemma is needed at all.** Bank SMS don't say "Swiggy". They say `PYU*BUNDL TECHNOLOGIES`, `RAZ*DREAMPLUG` or `paytm-48213345@ptys`. A lookup table can't keep up with payment gateways, UPI handles and abbreviations, but a language model that has read the internet knows that Bundl Technologies is Swiggy's company. Gemma gets a short few-shot prompt and answers in one line, `Name | Category`. Each merchant is asked about **once**, and the answer is cached forever. So the model runs a handful of times a week, not on every SMS. That's the slow-and-steady part: it does very little, and only when there's something new to learn.
+**Why Gemma is needed at all.** Bank SMS don't say "Uber" or "Blinkit". They say `UBER INDIA SYSTEMS`, `blinkit@hdfcbank`, `HPCL MAHALAXMI SERVICE STN` or `TATA POWER DDL`. A lookup table can't keep up with payment gateways, UPI handles and company names. A language model that has read the internet mostly can. Gemma gets a short few-shot prompt and answers in one line, `Name | Category`. Each merchant is asked about **once**, and the answer is cached forever. So the model runs a handful of times a week, not on every SMS. That's the slow-and-steady part: it does very little, and only when there's something new to learn.
 
-**Running it on the phone.** Google publishes Gemma 3 1B as a 4-bit `.task` file (about 550 MB) for its open-source **MediaPipe LLM Inference** runtime. I load it on the CPU, with greedy decoding (temperature 0) so the same SMS always gets the same answer. On my Galaxy M35, a mid-range phone with an Exynos 1380:
+**I started with the wrong Gemma.** My first build used Gemma 3 1B (a 4-bit, 550 MB `.task` file on MediaPipe). On its very first run it didn't answer at all. It repeated my instructions back, because I hadn't wrapped the prompt in Gemma's chat turns. With that fixed, I wrote a 24-merchant check that runs on the phone (Setup → Accuracy check). It uses real-looking Indian payee strings that never appear in the prompt, each with the answer a person would give. Then I swapped in **Gemma 4 E2B** (2.6 GB, Apache-2.0, on Google's open-source **LiteRT-LM** runtime) and ran the same check:
 
-| | Result |
-|---|---|
-| Model load | REPLACE_LOAD |
-| One merchant label (prompt + answer) | REPLACE_LABEL |
-| Morning note | REPLACE_NOTE |
-| RAM while running | REPLACE_RAM |
+| On a Galaxy M35 (Exynos 1380), CPU | Gemma 3 1B | Gemma 4 E2B |
+|---|---|---|
+| Merchant names right | 15 / 24 | 16 / 24 |
+| Categories right | 9 / 24 | **18 / 24** |
+| Time per merchant | 4.5 s | **2.6 s** |
+| Model load, warm | 0.4 s | 0.5 s |
+| Peak app memory | — | about 1 GB |
 
-All of it runs in a background job, so I never wait on it. The alert itself doesn't use the model at all, so it fires the moment the SMS lands.
+The bigger model is also the faster one here. That surprised me, and it's why Hisaab now ships with Gemma 4 E2B and keeps the 1B as a fallback for smaller phones. The 1B filed Tata Power under "Investments"; Gemma 4 files it under Bills.
 
-**The guard that keeps Gemma honest.** In my first test, the morning note came back REPLACE_GUARD_STORY. So the code now pulls every number out of Gemma's note and checks each one against the facts it was given. If even one figure isn't in that list, Hisaab throws the note away and shows a plain template instead. You might get a slightly duller note, but you will never get a made-up ₹ amount.
+**What Gemma 4 still gets wrong** is the interesting part. Every name it missed is a legal company name that hides the brand: `KIRANAKART TECHNOLOGIES` is Zepto, `RAZ*DREAMPLUG TECHNOLOGIES` is CRED, `ONE97 COMMUNICATIONS` is Paytm. That's a lookup problem, not a language problem, so I didn't fake it with a bigger prompt. You tap the transaction, type "Zepto" once, and every past and future payment to that payee follows. Lazy, but only once.
+
+**The morning note, and why Gemma isn't allowed numbers.** My first version asked Gemma to rewrite the day's facts, with a guard that rejected any number that wasn't in the facts. Gemma 4 passed the guard and was still wrong: it called the month's total "today's spending". Every number was correct, and one label was wrong. A number guard can't catch that. So now Gemma writes one sentence with no figures at all ("It sounds like a busy day with a mix of spending and a bill to watch."), and the code prints the exact numbers underneath. If Gemma slips a digit or a ₹ into its line anyway, the line is dropped.
+
+**Running it on the phone.** Both models load on the CPU with greedy decoding (temperature 0), so the same SMS always gets the same answer. Naming runs in a background job, so I never wait on it. The alert itself doesn't use the model at all, so it fires the moment the SMS lands, and Gemma's name for the payee appears a couple of seconds later.
 
 **Parsing Indian bank SMS.** Every bank has its own format, and a few of them nearly broke the parser:
 
@@ -73,7 +78,7 @@ All of it runs in a background job, so I never wait on it. The alert itself does
 - Card statements carry two amounts, total due and minimum due. Hisaab takes the total.
 - Billers send *"Payment of ₹1,499 has been received, thank you"*. These are skipped, because the bank's own debit SMS already counts that money.
 
-All of this sits in plain Kotlin with no Android code, so it's unit-tested on a laptop. 16 tests run against 30 synthetic SMS covering HDFC, ICICI, SBI, Axis, Kotak and HSBC.
+All of this sits in plain Kotlin with no Android code, so it's unit-tested on a laptop. 17 tests run against 30 synthetic SMS covering HDFC, ICICI, SBI, Axis, Kotak and HSBC.
 
 **The first scan.** When you install it, Hisaab reads your last 90 days of SMS. The first version alerted on every "new merchant" from three months ago, and nobody needs that. Now anything older than 7 days is quietly marked as yours, and only recent surprises ask for an answer.
 
@@ -87,7 +92,7 @@ For this app, the open model is the whole idea.
 
 **It works offline.** On a flight, in a basement, or in airplane mode, the alerts and merchant labels still work.
 
-**I can change how it behaves.** The prompt, the categories and the guard are all mine to change. The model file can be swapped for a bigger Gemma when phones get faster. MediaPipe is open source too, so when something misbehaved I could read the code instead of guessing.
+**I can change how it behaves.** The prompt, the categories and the guard are all mine to change. I swapped Gemma 3 1B for Gemma 4 E2B in an afternoon and measured the difference, and the next Gemma will drop in the same way. MediaPipe is open source too, so when something misbehaved I could read the code instead of guessing.
 
 ## The Lazy Payoff
 
@@ -95,4 +100,4 @@ REPLACE_LAZY_PAYOFF
 
 ## Prize Categories
 
-**Best Use of Gemma:** Gemma 3 1B runs on the phone through MediaPipe, with no server at any step.
+**Best Use of Gemma:** Gemma 4 E2B runs on the phone through LiteRT-LM, with a measured comparison against Gemma 3 1B, and no server at any step.

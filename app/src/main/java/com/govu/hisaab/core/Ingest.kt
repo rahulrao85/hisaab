@@ -78,7 +78,7 @@ fun isBusinessSender(address: String?): Boolean =
 /** Scripted "live" SMS for demo mode, since a real SMS can't be faked on a real phone. */
 object DemoLive {
     private val script = listOf(
-        "AX-HDFCBK-S" to "Spent Rs.1,249.00 On HDFC Bank Card 5508 At PYU*BUNDL TECHNOLOGIES On {d} Not You? To Block+Reissue Call 18002586161",
+        "AX-HDFCBK-S" to "Spent Rs.1,180.00 On HDFC Bank Card 5508 At HPCL MAHALAXMI SERVICE STN On {d} Not You? To Block+Reissue Call 18002586161",
         "AX-HDFCBK-S" to "Sent Rs.412.00 From HDFC Bank A/C *4821 To UBER INDIA SYSTEMS On {d} Ref {ref} Not You? Call 18002586161/SMS BLOCK UPI to 7308080808",
         "AX-HDFCBK-S" to "Sent Rs.412.00 From HDFC Bank A/C *4821 To UBER INDIA SYSTEMS On {d} Ref {ref} Not You? Call 18002586161/SMS BLOCK UPI to 7308080808",
     )
