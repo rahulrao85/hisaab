@@ -27,13 +27,13 @@ What it does, so I don't have to:
 
 ## Demo
 
-REPLACE_DEMO_VIDEO
+{% embed https://youtu.be/ktnUTKG1zO0 %}
 
 | Today | Bills, matched | No internet, by design |
 |---|---|---|
 | ![Today: alerts and the morning note](https://raw.githubusercontent.com/rahulrao85/hisaab/main/post/img_today.png) | ![Bills matched to the payments](https://raw.githubusercontent.com/rahulrao85/hisaab/main/post/img_bills.png) | ![Setup: no internet permission](https://raw.githubusercontent.com/rahulrao85/hisaab/main/post/img_setup.png) |
 
-*The screenshots use the app's demo mode: 30 made-up SMS in a separate database. No real account appears anywhere in this post.*
+*The video and screenshots use the app's demo mode: 30 made-up SMS in a separate database. No real account appears anywhere in this post. The narration is an AI clone of my own voice.*
 
 ## Code
 
@@ -93,10 +93,6 @@ For this app, the open model is the whole idea.
 **It works offline.** On a flight, in a basement, or in airplane mode, the alerts and merchant labels still work.
 
 **I can change how it behaves.** The prompt, the categories and the guard are all mine to change. I swapped Gemma 3 1B for Gemma 4 E2B in an afternoon and measured the difference, and the next Gemma will drop in the same way. MediaPipe is open source too, so when something misbehaved I could read the code instead of guessing.
-
-## The Lazy Payoff
-
-REPLACE_LAZY_PAYOFF
 
 ## Prize Categories
 
