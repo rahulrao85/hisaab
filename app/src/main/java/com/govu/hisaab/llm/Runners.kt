@@ -57,7 +57,7 @@ internal class LiteRtLmRunner(ctx: Context, file: File, gpu: Boolean) : Runner {
     override fun ask(prompt: String): String {
         val cfg = ConversationConfig(
             samplerConfig = SamplerConfig(1, 1.0, 0.0, 7),
-            maxOutputToken = 64,
+            maxOutputToken = 96,
             thinkingConfig = ThinkingConfig(false),
         )
         engine.createConversation(cfg).use { c ->

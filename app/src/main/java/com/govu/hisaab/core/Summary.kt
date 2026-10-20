@@ -19,14 +19,6 @@ data class DayFacts(
     val billsDueSoon: List<Txn>,
     val billsOverdue: List<Txn>,
 ) {
-    /** Every figure Gemma is allowed to mention, already formatted. */
-    fun allowedFigures(): List<String> = buildList {
-        add(rupees(spent)); add(rupees(received)); add(rupees(monthSpent))
-        add(count.toString()); add(openAlerts.toString())
-        topCategories.forEach { add(rupees(it.second)) }
-        biggest?.let { add(rupees(it.amount)) }
-        (billsDueSoon + billsOverdue).forEach { add(rupees(it.amount)) }
-    }
 }
 
 object Summary {
@@ -83,13 +75,12 @@ object Summary {
     }
 
     /**
-     * Guard for the model's rewrite: every number it writes must be one we gave it.
-     * A 1B model that invents ₹ figures is worse than no summary at all.
+     * Gemma writes one friendly line; the figures underneath come from code. The line may
+     * describe the day but never state a figure, so it can't get an amount or its label wrong.
      */
-    fun numbersAreGrounded(text: String, f: DayFacts): Boolean {
-        val allowed = f.allowedFigures().joinToString(" ") + " " + f.day.format(dayFmt) + " " +
-            (f.billsDueSoon + f.billsOverdue).joinToString(" ") { localDate(it.dueTs!!).format(dayFmt) }
-        val allowedNums = Regex("""\d[\d,]*(?:\.\d+)?""").findAll(allowed).map { it.value.replace(",", "") }.toSet()
-        return Regex("""\d[\d,]*(?:\.\d+)?""").findAll(text).all { it.value.replace(",", "") in allowedNums }
+    fun openerIsSafe(text: String): Boolean {
+        val l = text.lowercase()
+        return text.isNotBlank() && text.length <= 160 && text.none { it.isDigit() } &&
+            listOf("₹", "rs.", "rs ", "inr", "rupee").none { it in l }
     }
 }

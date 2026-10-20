@@ -74,3 +74,20 @@ fun stableSmsId(sender: String, body: String, sentTs: Long): Long {
 /** Indian commercial senders look like "VM-HDFCBK" or "AX-ICICIT-S". Personal numbers are never read. */
 fun isBusinessSender(address: String?): Boolean =
     address != null && Regex("""^[A-Z]{2}-[A-Z0-9]{3,9}(-[A-Z])?$""", RegexOption.IGNORE_CASE).matches(address.trim())
+
+/** Scripted "live" SMS for demo mode, since a real SMS can't be faked on a real phone. */
+object DemoLive {
+    private val script = listOf(
+        "AX-HDFCBK-S" to "Spent Rs.1,249.00 On HDFC Bank Card 5508 At PYU*BUNDL TECHNOLOGIES On {d} Not You? To Block+Reissue Call 18002586161",
+        "AX-HDFCBK-S" to "Sent Rs.412.00 From HDFC Bank A/C *4821 To UBER INDIA SYSTEMS On {d} Ref {ref} Not You? Call 18002586161/SMS BLOCK UPI to 7308080808",
+        "AX-HDFCBK-S" to "Sent Rs.412.00 From HDFC Bank A/C *4821 To UBER INDIA SYSTEMS On {d} Ref {ref} Not You? Call 18002586161/SMS BLOCK UPI to 7308080808",
+    )
+
+    fun next(step: Int, now: Long = System.currentTimeMillis()): RawSms {
+        val (sender, tpl) = script[step % script.size]
+        val d = java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneId.of("Asia/Kolkata"))
+            .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yy"))
+        val body = tpl.replace("{d}", d).replace("{ref}", "6293" + (now % 100_000_000).toString().padStart(8, '0'))
+        return RawSms(stableSmsId(sender, body, now), now, sender, body)
+    }
+}

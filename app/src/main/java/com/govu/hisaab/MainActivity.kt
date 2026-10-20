@@ -354,7 +354,10 @@ private fun BillsScreen(s: Snapshot) {
                 paid != null && kotlin.math.abs(paid.amount - b.amount) <= 1.0 -> "Paid ${rupees(paid.amount)} · matches" to t.success
                 paid != null -> "Paid ${rupees(paid.amount)} · bill was ${rupees(b.amount)}" to t.danger
                 b.dueTs != null && b.dueTs < now -> "Overdue?" to t.danger
-                b.dueTs != null -> "Due in ${maxOf(0, ((b.dueTs - now) / 86_400_000L).toInt())} days" to t.warning
+                b.dueTs != null -> {
+                    val days = java.time.temporal.ChronoUnit.DAYS.between(Summary.localDate(now), Summary.localDate(b.dueTs)).toInt()
+                    (when (days) { 0 -> "Due today"; 1 -> "Due tomorrow"; else -> "Due in $days days" }) to t.warning
+                }
                 else -> "Unpaid" to t.warning
             }
             Glass(tint = if (color == t.danger) t.danger else null) {
@@ -523,6 +526,17 @@ private fun SetupScreen(s: Snapshot, reload: () -> Unit) {
                     OutlinedButton(onClick = { Jobs.morningNow(ctx) }) { Text("Morning note now") }
                     OutlinedButton(onClick = { exportCsv.launch("hisaab_${java.time.LocalDate.now()}.csv") }) { Text("Export CSV") }
                 }
+                if (s.demo) OutlinedButton(onClick = {
+                    scope.launch(Dispatchers.IO) {
+                        val prefs = ctx.getSharedPreferences("hisaab", android.content.Context.MODE_PRIVATE)
+                        val step = prefs.getInt("sim_step", 0)
+                        prefs.edit().putInt("sim_step", step + 1).apply()
+                        Store.demo(ctx).ingest(com.govu.hisaab.core.DemoLive.next(step))?.let { tx ->
+                            if (tx.alerts.isNotEmpty()) com.govu.hisaab.work.Notifier.alert(ctx, tx)
+                        }
+                        Jobs.enrichSoon(ctx)
+                    }
+                }) { Text("Simulate a bank SMS") }
                 if (busy.isNotEmpty()) Text(busy, color = t.primary, fontSize = 13.sp)
             }
         }

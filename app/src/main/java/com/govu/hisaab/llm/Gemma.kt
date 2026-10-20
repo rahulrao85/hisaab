@@ -30,18 +30,18 @@ class Gemma private constructor(private val runner: Runner, val backend: String,
         return parseMerchant(answer, t)
     }
 
-    /** Two friendly sentences, or the plain template if Gemma used a number it wasn't given. */
+    /** One warm line from Gemma (no figures allowed) above the exact numbers from code. */
     fun morningNote(f: DayFacts): Pair<String, Boolean> {
         val facts = Summary.template(f)
-        val note = ask(
-            """Rewrite these spending facts as a short, warm morning note of at most 2 sentences.
-Copy every number exactly as written. Do not add any number that is not in the facts. No greeting, no advice.
+        val line = ask(
+            """Here is what someone spent yesterday:
+$facts
 
-Facts: $facts
-
-Note:""",
-        ).lineSequence().filter { it.isNotBlank() }.joinToString(" ").trim()
-        return if (note.isNotBlank() && Summary.numbersAreGrounded(note, f)) note to true else facts to false
+Write ONE short, friendly sentence (under 20 words) about the shape of their day, like a calm friend would.
+Do not write any numbers, amounts, dates or currency. No greeting, no advice.""",
+        ).lineSequence().map { it.trim().trim('"') }.firstOrNull { it.isNotBlank() } ?: ""
+        Log.i(TAG, "opener: $line")
+        return if (Summary.openerIsSafe(line)) "$line\n\n$facts" to true else facts to false
     }
 
     /** Load time, then a fixed labelling prompt, so the numbers in the post are reproducible. */
@@ -145,6 +145,7 @@ RAZ*CULTFIT (a payment to) -> Cult.fit | Health
 BBPS-BESCOM (a bill from) -> BESCOM | Bills
 VODAFONE IDEA (a payment to) -> Vi | Bills
 rk.verma@okhdfcbank (money received from) -> R K Verma | Transfers
+INFOSYS LIMITED NEFT (money received from) -> Infosys salary | Salary
 ZERODHA BROKING (a payment to) -> Zerodha | Investments
 
 Payee: ${t.merchantRaw.ifBlank { "(none)" }} ($what)"""

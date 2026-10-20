@@ -54,6 +54,11 @@ class ParserAndRulesTest {
         assertEquals(Kind.CREDIT, t.kind); assertEquals(435000.0, t.amount, 0.0); assertEquals("ACME SOFTWARE PVT LTD", t.merchantRaw)
     }
 
+    @Test fun vpaWithDotsSurvives() {
+        val t = p("Rs.500.00 credited to A/c XX2210 by VPA a.sharma@okaxis (UPI Ref No 629310000016). -HSBC", "VM-HSBCIN-S")!!
+        assertEquals(Kind.CREDIT, t.kind); assertEquals("a.sharma@okaxis", t.merchantRaw)
+    }
+
     @Test fun postpaidBillIsABillNotADebit() {
         val t = p("Dear Customer, your Airtel Postpaid bill of Rs.1,199.00 for 98XXXXXX10 is due on 25-Oct-2026.", "JD-ICICIT-S")!!
         assertEquals(Kind.BILL, t.kind); assertEquals(1199.0, t.amount, 0.0); assertEquals("Airtel", t.merchantRaw)
@@ -105,10 +110,12 @@ class ParserAndRulesTest {
         assertEquals(Verdict.NONE, back.first { "RAZ DREAMPLUG" in it.body }.verdict)
     }
 
-    @Test fun summaryGuardRejectsInventedNumbers() {
+    @Test fun morningLineMayNotStateFigures() {
         val f = Summary.facts(all, today.minusDays(1), now)
-        assertTrue(Summary.numbersAreGrounded(Summary.template(f), f))
-        assertTrue(!Summary.numbersAreGrounded("You spent ₹9,999 yesterday.", f))
+        assertTrue(Summary.template(f).contains("₹5,724"))
+        assertTrue(Summary.openerIsSafe("A quiet day: mostly food, plus one big transfer to check."))
+        assertTrue(!Summary.openerIsSafe("You spent ₹9,999 yesterday."))
+        assertTrue(!Summary.openerIsSafe("Today's spending totals 19,502 so far."))
     }
 
     @Test fun indianGrouping() {

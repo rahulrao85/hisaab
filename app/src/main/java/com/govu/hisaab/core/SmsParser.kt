@@ -53,7 +53,7 @@ object SmsParser {
     private val upiP2 = Regex("""UPI/P2[MA]/\d+/([^/\n]+?)(?:/|\s+Not|\s+-|$)""", RegexOption.IGNORE_CASE)
     private val vpa = Regex("""\b([a-z0-9][a-z0-9.\-_]{1,}@[a-z]{2,})\b""", RegexOption.IGNORE_CASE)
 
-    private val stop = """(?=\s+(?:on|not you|not u|ref|refno|upi|avl|avbl|bal|via|from|using|in your|if not|call|txn|dated|at \d)\b|[.;,(]|\s*$)"""
+    private val stop = """(?=\s+(?:on|not you|not u|ref|refno|upi|avl|avbl|bal|via|from|using|in your|if not|call|txn|dated|at \d)\b|\.(?=\s|$)|[;,(]|\s*$)"""
 
     private val debitMerchant = listOf(
         Regex("""\bat\s+(.+?)$stop""", RegexOption.IGNORE_CASE),
