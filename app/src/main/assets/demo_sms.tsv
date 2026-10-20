@@ -1,0 +1,32 @@
+# Synthetic SMS for demo mode and tests. Not real accounts, not real people.
+# days_ago	HH:mm	sender	body
+12	09:02	AX-HDFCBK-S	Sent Rs.342.00 From HDFC Bank A/C *4821 To SWIGGY On 08/10/26 Ref 629310000001 Not You? Call 18002586161/SMS BLOCK UPI to 7308080808
+12	13:40	JD-ICICIT-S	ICICI Bank Acct XX107 debited for Rs 1,199.00 on 08-Oct-26; AIRTEL credited. UPI:629310000002. Call 18002662 for dispute. SMS BLOCK 107 to 9215676766.
+11	20:15	AX-HDFCBK-S	Sent Rs.389.00 From HDFC Bank A/C *4821 To SWIGGY On 09/10/26 Ref 629310000003 Not You? Call 18002586161/SMS BLOCK UPI to 7308080808
+11	21:05	VM-AXISBK-S	INR 412.00 debited A/c no. XX9930 09-10-26, 21:05:11 UPI/P2M/629310000004/ZOMATO LTD Not you? SMS BLOCKUPI Cust ID to 919951860002 Axis Bank
+10	08:30	VM-HSBCIN-S	INR 4,35,000.00 credited to A/c XX2210 on 10-10-26 by NEFT from ACME SOFTWARE PVT LTD. Avl Bal INR 6,12,450.00 -HSBC
+10	10:12	AX-HDFCBK-S	Your OTP for txn of Rs.2,499.00 at AMAZON is 482910. Do not share it with anyone. -HDFC Bank
+10	19:44	VM-AXISBK-S	INR 358.00 debited A/c no. XX9930 10-10-26, 19:44:02 UPI/P2M/629310000005/ZOMATO LTD Not you? SMS BLOCKUPI Cust ID to 919951860002 Axis Bank
+9	11:20	VM-HSBCIN-S	Your HSBC Credit Card ending 7731 has been used for INR 5,299.00 at FLIPKART on 11 Oct 2026 at 11:20. Avl limit INR 1,84,701.00
+9	12:00	TX-KOTAKB-S	Get a pre-approved personal loan up to Rs 5,00,000 at 10.5%. Apply now on the Kotak app!
+8	21:30	VM-AXISBK-S	INR 401.00 debited A/c no. XX9930 12-10-26, 21:30:40 UPI/P2M/629310000006/ZOMATO LTD Not you? SMS BLOCKUPI Cust ID to 919951860002 Axis Bank
+8	09:10	JD-TATAPW-S	Dear Customer, your Tata Power bill amt Rs 2,140.00 for CA No 9000123456 is due on 22-10-2026. Pay via BBPS.
+7	18:05	AX-HDFCBK-S	Spent Rs.649.00 On HDFC Bank Card 5508 At NETFLIX On 2026-10-13:18:05:10 Not You? To Block+Reissue Call 18002586161
+7	22:47	AX-HDFCBK-S	Sent Rs.120.00 From HDFC Bank A/C *4821 To paytm-48213345@ptys On 13/10/26 Ref 629310000007 Not You? Call 18002586161/SMS BLOCK UPI to 7308080808
+6	08:55	JD-ICICIT-S	Dear Customer, your Airtel Postpaid bill of Rs.1,199.00 for 98XXXXXX10 is due on 25-Oct-2026.
+5	14:02	TX-KOTAKB-S	Sent Rs.250.00 from Kotak Bank AC X3317 to blinkit@hdfcbank on 15-10-26.UPI Ref 629310000008. Not you, https://kotak.com/KBANKT/Fraud
+5	20:20	AX-HDFCBK-S	Sent Rs.410.00 From HDFC Bank A/C *4821 To SWIGGY On 15/10/26 Ref 629310000009 Not You? Call 18002586161/SMS BLOCK UPI to 7308080808
+4	10:00	AX-HDFCBK-S	HDFC Bank Credit Card XX5508 Statement: Total due Rs.18,450.00, Min due Rs.920.00, Due date 05-Nov-26. Pay on time to avoid charges.
+4	12:30	VM-HSBCIN-S	Your e-mandate for NETFLIX of Rs.649.00 will be debited on 13-Nov-2026 from HDFC Bank Card 5508
+3	09:15	JD-ICICIT-S	ICICI Bank Acct XX107 debited for Rs 1,499.00 on 17-Oct-26; AIRTEL credited. UPI:629310000010. Call 18002662 for dispute. SMS BLOCK 107 to 9215676766.
+3	09:20	JD-AIRTEL-S	Payment of Rs.1,499.00 has been received for your Airtel number 98XXXXXX10. Thank you!
+3	19:02	VM-AXISBK-S	INR 2,450.00 debited A/c no. XX9930 17-10-26, 19:02:15 UPI/P2M/629310000011/ZOMATO LTD Not you? SMS BLOCKUPI Cust ID to 919951860002 Axis Bank
+2	09:30	JD-TATAPW-S	Dear Customer, your Tata Power bill amt Rs 3,310.00 for CA No 9000123456 is due on 30-10-2026. Pay via BBPS.
+2	16:40	VM-HSBCIN-S	Your e-mandate for YOUTUBEGOOGLE of Rs.299.00 will be debited on 25-Oct-2026 from HSBC Credit Card 7731
+1	02:14	VM-HSBCIN-S	Your HSBC Credit Card ending 7731 has been used for USD 20.00 at OPENAI *CHATGPT SUBSCR on 19 Oct 2026 at 02:14. Avl limit INR 1,82,980.00
+1	08:41	AX-HDFCBK-S	Sent Rs.180.00 From HDFC Bank A/C *4821 To UBER INDIA SYSTEMS On 19/10/26 Ref 629310000012 Not You? Call 18002586161/SMS BLOCK UPI to 7308080808
+1	08:44	AX-HDFCBK-S	Sent Rs.180.00 From HDFC Bank A/C *4821 To UBER INDIA SYSTEMS On 19/10/26 Ref 629310000013 Not You? Call 18002586161/SMS BLOCK UPI to 7308080808
+1	13:05	JD-SBIUPI-S	Dear UPI user A/C X6612 debited by 4999.0 on date 19Oct26 trf to RAZ DREAMPLUG Refno 629310000014. If not u? call 1800111109. -SBI
+1	20:10	AX-HDFCBK-S	Sent Rs.365.00 From HDFC Bank A/C *4821 To SWIGGY On 19/10/26 Ref 629310000015 Not You? Call 18002586161/SMS BLOCK UPI to 7308080808
+1	21:00	VM-HSBCIN-S	Rs.500.00 credited to A/c XX2210 by VPA a.sharma@okaxis (UPI Ref No 629310000016). -HSBC
+0	08:05	AX-HDFCBK-S	Spent Rs.840.00 On HDFC Bank Card 5508 At DMART READY On 2026-10-20:08:05:44 Not You? To Block+Reissue Call 18002586161
