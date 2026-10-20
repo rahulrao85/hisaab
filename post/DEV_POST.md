@@ -22,7 +22,7 @@ What it does, so I don't have to:
   - a new auto-debit I never set up
 
   *It was me* and *Not me* buttons sit right on the notification.
-- **A morning note at 08:00:** yesterday in two sentences, the month so far, and bills due soon.
+- **A morning note at 08:00:** one calm line about yesterday, then the exact figures: what I spent, the month so far, and bills due soon.
 - **Bills, matched:** every bill SMS is paired with the debit that paid it, so "did I pay Tata Power?" takes a glance, not a search.
 
 ## Demo
@@ -92,7 +92,7 @@ For this app, the open model is the whole idea.
 
 **It works offline.** On a flight, in a basement, or in airplane mode, the alerts and merchant labels still work.
 
-**I can change how it behaves.** The prompt, the categories and the guard are all mine to change. I swapped Gemma 3 1B for Gemma 4 E2B in an afternoon and measured the difference, and the next Gemma will drop in the same way. MediaPipe is open source too, so when something misbehaved I could read the code instead of guessing.
+**I can change how it behaves.** The prompt, the categories and the guard are all mine to change. I swapped Gemma 3 1B for Gemma 4 E2B in an afternoon and measured the difference, and the next Gemma will drop in the same way. LiteRT-LM and MediaPipe are open source too, so when something misbehaved I could read the code instead of guessing.
 
 ## Prize Categories
 
